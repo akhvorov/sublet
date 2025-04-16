@@ -17,15 +17,16 @@ TELEGRAM_CHAT_NAME = os.getenv('TELEGRAM_CHAT_NAME')
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 
 # Data storage configuration
-DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_DIR = os.path.join(BASE_DIR, 'data')
 LISTINGS_FILE = os.path.join(DATA_DIR, 'listings.json')
 LISTINGS_ENRICHED_FILE = os.path.join(DATA_DIR, 'listings_enriched.json')
 SESSION_FILE = os.path.join(DATA_DIR, 'telegram_session')
 MEDIA_DIR = os.path.join(DATA_DIR, 'media')  # Директория для хранения медиафайлов
 
 # Website configuration
-TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'templates')
-OUTPUT_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'docs')  # GitHub Pages uses /docs by default
+TEMPLATES_DIR = os.path.join(BASE_DIR, 'static', 'templates')
+OUTPUT_DIR = os.path.join(BASE_DIR, 'docs')  # GitHub Pages uses /docs by default
 
 # Time configuration
-TIMEZONE = 'Europe/Berlin'  # Центральноевропейское время 
+TIMEZONE = 'Europe/Berlin'  # Центральноевропейское время

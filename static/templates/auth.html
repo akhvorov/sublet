@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Авторизация</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #0088cc;
+            --primary-hover: #006699;
+            --bg-color: #f8f9fa;
+            --text-color: #2c3e50;
+            --error-color: #dc3545;
+            --success-color: #198754;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            min-height: 100vh;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: var(--text-color);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 400px;
+            margin: 20px;
+            background: white;
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        .logo {
+            font-size: 3rem;
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: var(--text-color);
+        }
+
+        .description {
+            color: #6c757d;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            font-size: 1rem;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(0, 136, 204, 0.1);
+        }
+
+        button {
+            width: 100%;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 500;
+            color: white;
+            background: var(--primary-color);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        button:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .message {
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+            font-size: 0.95rem;
+            display: none;
+        }
+
+        .message.error {
+            background: #fff5f5;
+            color: var(--error-color);
+            border: 1px solid #fcc;
+        }
+
+        .message.success {
+            background: #f0fff4;
+            color: var(--success-color);
+            border: 1px solid #c6f6d5;
+        }
+
+        .verification-form {
+            opacity: 0;
+            height: 0;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .verification-form.visible {
+            opacity: 1;
+            height: auto;
+            margin-top: 1.5rem;
+        }
+
+        .telegram-icon {
+            font-size: 1.2rem;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                margin: 1rem;
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">
+            <i class="bi bi-house-heart"></i>
+        </div>
+        <h1>HSE Sublet</h1>
+        
+        <div id="start-auth">
+            <p class="description">
+                Для доступа к объявлениям необходима авторизация через Telegram. 
+                Нажмите кнопку ниже и следуйте инструкциям бота.
+            </p>
+            <button onclick="startAuth()">
+                <i class="bi bi-telegram telegram-icon"></i>
+                Войти через Telegram
+            </button>
+        </div>
+
+        <div id="verification-form" class="verification-form">
+            <p class="description">
+                Введите код подтверждения, который мы отправили вам в Telegram
+            </p>
+            <div class="form-group">
+                <input type="text" 
+                       id="code" 
+                       placeholder="Код подтверждения" 
+                       maxlength="6"
+                       autocomplete="off"
+                       onkeypress="return event.charCode >= 48 && event.charCode <= 57"
+                       required>
+            </div>
+            <button onclick="verifyCode()">
+                <i class="bi bi-shield-check"></i>
+                Подтвердить
+            </button>
+        </div>
+
+        <div id="message" class="message"></div>
+    </div>
+
+    <script>
+        function startAuth() {
+            // Открываем бота в новой вкладке с командой /start
+            window.open('https://t.me/aakhvorov_notify_bot?start=auth', '_blank');
+            
+            // Показываем форму для ввода кода с анимацией
+            const form = document.getElementById('verification-form');
+            form.classList.add('visible');
+            
+            // Фокусируемся на поле ввода
+            setTimeout(() => {
+                document.getElementById('code').focus();
+            }, 300);
+        }
+
+        async function verifyCode() {
+            const code = document.getElementById('code').value;
+            const messageDiv = document.getElementById('message');
+            messageDiv.style.display = 'block';
+
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/auth/verify', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        code: code
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Сохраняем токен
+                    localStorage.setItem('access_token', data.access_token);
+                    messageDiv.textContent = 'Успешная авторизация!';
+                    messageDiv.className = 'message success';
+                    // Перенаправляем на главную страницу
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 1000);
+                } else {
+                    messageDiv.textContent = data.detail || 'Ошибка при верификации';
+                    messageDiv.className = 'message error';
+                }
+            } catch (error) {
+                messageDiv.textContent = 'Ошибка сервера';
+                messageDiv.className = 'message error';
+                console.error('Error:', error);
+            }
+        }
+
+        // Добавляем обработку Enter в поле ввода кода
+        document.getElementById('code').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                verifyCode();
+            }
+        });
+    </script>
+</body>
+</html> 

@@ -219,6 +219,14 @@ def ensure_output_directory():
     else:
         print(f"CSS файл не найден: {css_source}")
 
+    # Копируем страницу авторизации
+    auth_source = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'templates', 'auth.html')
+    auth_dest = os.path.join(OUTPUT_DIR, 'auth.html')
+    if os.path.exists(auth_source):
+        shutil.copy2(auth_source, auth_dest)
+    else:
+        print(f"Страница авторизации не найдена: {auth_source}")
+
     # Копируем медиафайлы
     if os.path.exists(MEDIA_DIR):
         for file in os.listdir(MEDIA_DIR):
