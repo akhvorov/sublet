@@ -1,0 +1,551 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h1 class="mb-4">
+    {% if page_type == 'renting_out' %}
+    Сдают квартиру
+    {% elif page_type == 'looking_for' %}
+    Ищут квартиру
+    {% else %}
+    Обмен квартирами
+    {% endif %}
+</h1>
+
+<div class="row">
+    <div class="col-md-3 mb-4">
+        <div class="card">
+            <div class="card-header">
+                Фильтры
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="city" class="form-label">Город</label>
+                    <select class="form-select" id="city">
+                        <option value="">Все города</option>
+                        {% set cities = [] %}
+                        {% for listing in listings %}
+                            {% if listing.city and listing.city not in cities %}
+                                {% set _ = cities.append(listing.city) %}
+                            {% endif %}
+                        {% endfor %}
+                        {% for city in cities|sort %}
+                            <option value="{{ city }}">{{ city }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Период</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="date-range" placeholder="Выберите период" readonly>
+                        <button class="btn btn-outline-secondary" type="button" id="clear-dates">
+                            <i class="bi bi-x-lg"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Сортировка</label>
+                    <select class="form-select" id="sort">
+                        <option value="date-desc">Сначала новые</option>
+                        <option value="date-asc">Сначала старые</option>
+                        <option value="price-asc">Сначала дешевые</option>
+                        <option value="date-match">По совпадению дат</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-9">
+        <div id="listings" class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            {% for listing in listings %}
+            <div class="col listing" data-date="{{ listing.date }}">
+                <div class="card h-100 {% if listing.is_new %}new-listing{% endif %}">
+                    <div class="listing-images">
+                        {% if listing.photo_paths %}
+                            {% if listing.photo_paths|length > 1 %}
+                            <div id="carousel-{{ listing.id }}" class="carousel slide" data-bs-ride="false" data-bs-interval="false">
+                                <div class="carousel-inner">
+                                    {% for photo in listing.photo_paths %}
+                                    <div class="carousel-item {% if loop.first %}active{% endif %}">
+                                        <div class="image-container">
+                                            <img src="{{ photo }}" class="d-block w-100 rounded-top" alt="Фото объявления" loading="lazy">
+                                            <div class="image-counter">{{ loop.index }} / {{ listing.photo_paths|length }}</div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                <button class="carousel-control-prev" type="button" data-bs-target="#carousel-{{ listing.id }}" data-bs-slide="prev">
+                                    <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                    <span class="visually-hidden">Предыдущее</span>
+                                </button>
+                                <button class="carousel-control-next" type="button" data-bs-target="#carousel-{{ listing.id }}" data-bs-slide="next">
+                                    <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                    <span class="visually-hidden">Следующее</span>
+                                </button>
+                            </div>
+                            {% else %}
+                            <div class="image-container">
+                                <img src="{{ listing.photo_paths[0] }}" class="d-block w-100 rounded-top" alt="Фото объявления" loading="lazy">
+                            </div>
+                            {% endif %}
+                        {% else %}
+                        <div class="image-container placeholder">
+                            <div class="placeholder-content">
+                                <i class="placeholder-icon">🏠</i>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                {% if listing.is_new %}
+                                <span class="badge bg-warning">New</span>
+                                {% endif %}
+                            </div>
+                            <div>
+                                {% if listing.price_eur %}
+                                <span class="badge bg-success">{{ listing.price_eur|format_price }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% if listing.city or listing.country %}
+                        <div class="location mb-2">
+                            <small class="text-muted">
+                                <i class="bi bi-geo-alt"></i>
+                                {% if listing.city %}{{ listing.city }}{% endif %}
+                                {% if listing.city and listing.country %},{% endif %}
+                                {% if listing.country %} {{ listing.country }}{% endif %}
+                            </small>
+                        </div>
+                        {% endif %}
+                        {% if listing.rental_start or listing.rental_end %}
+                        <div class="dates mb-2">
+                            <small class="text-muted">
+                                <i class="bi bi-calendar"></i>
+                                {% if listing.rental_start %}с {{ listing.rental_start|format_date }}{% endif %}
+                                {% if listing.rental_end %} по {{ listing.rental_end|format_date }}{% endif %}
+                            </small>
+                        </div>
+                        {% endif %}
+                        <p class="card-text text-preview">{{ listing.text }}</p>
+                        <div class="mt-auto text-center">
+                            <a href="listings/{{ listing.id }}.html" class="btn btn-sm btn-outline-primary w-100">Подробнее</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const cityInput = document.getElementById('city');
+    const dateRangeInput = document.getElementById('date-range');
+    const sortSelect = document.getElementById('sort');
+    const listings = document.getElementById('listings');
+
+    // Инициализация календаря
+    let datePicker = new Litepicker({
+        element: dateRangeInput,
+        format: 'DD.MM.YYYY',
+        lang: 'ru-RU',
+        numberOfMonths: 2,
+        numberOfColumns: 2,
+        singleMode: false,
+        autoApply: true,
+        showTooltip: true,
+        tooltipText: {
+            one: 'день',
+            few: 'дня',
+            many: 'дней',
+            other: 'дней'
+        },
+        setup: (picker) => {
+            picker.on('selected', (date1, date2) => {
+                filterListings();
+            });
+            picker.on('clear', () => {
+                filterListings();
+            });
+        }
+    });
+
+    function parseDate(dateStr) {
+        if (!dateStr) return null;
+        const parts = dateStr.split('.');
+        if (parts.length !== 3) return null;
+        // Создаем дату в UTC в полночь
+        return new Date(Date.UTC(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]), 0, 0, 0));
+    }
+
+    function hasDateOverlap(start1, end1, start2, end2) {
+        // Если даты не указаны, считаем что период бесконечный
+        if (!start1) start1 = new Date(-8640000000000000);
+        if (!end1) end1 = new Date(8640000000000000);
+        if (!start2) start2 = new Date(-8640000000000000);
+        if (!end2) end2 = new Date(8640000000000000);
+        
+        // Преобразуем даты в timestamp для корректного сравнения
+        start1 = start1.getTime();
+        end1 = end1.getTime();
+        start2 = start2.getTime();
+        end2 = end2.getTime();
+        
+        return start1 <= end2 && start2 <= end1;
+    }
+
+    // Добавляем обработчик для кнопки очистки дат
+    document.getElementById('clear-dates').addEventListener('click', function() {
+        datePicker.clearSelection();
+    });
+
+    // Изменяем обработчик для select города
+    cityInput.addEventListener('change', filterListings);
+
+    function filterListings() {
+        const cityValue = cityInput.value;
+        
+        // Получаем выбранные даты из календаря
+        let selectedDates = null;
+        if (datePicker.getStartDate() && datePicker.getEndDate()) {
+            selectedDates = {
+                start: datePicker.getStartDate(),
+                end: datePicker.getEndDate()
+            };
+        }
+        
+        const cards = document.querySelectorAll('.listing');
+        let visibleCount = 0;
+        
+        cards.forEach(card => {
+            const cityEl = card.querySelector('.location');
+            const city = cityEl ? cityEl.textContent.trim() : '';
+            
+            // Получаем даты аренды из карточки
+            const datesEl = card.querySelector('.dates');
+            let rentalStart = null;
+            let rentalEnd = null;
+            
+            if (datesEl) {
+                const datesText = datesEl.textContent;
+                const startMatch = datesText.match(/с\s+(\d{2}\.\d{2}\.\d{4})/);
+                const endMatch = datesText.match(/по\s+(\d{2}\.\d{2}\.\d{4})/);
+                
+                if (startMatch) {
+                    rentalStart = parseDate(startMatch[1]);
+                }
+                
+                if (endMatch) {
+                    rentalEnd = parseDate(endMatch[1]);
+                }
+            }
+            
+            let showCard = true;
+            
+            // Фильтр по городу (теперь точное совпадение)
+            if (cityValue) {
+                showCard = city.includes(cityValue);
+            }
+            
+            // Фильтр по датам
+            if (showCard && selectedDates) {
+                showCard = hasDateOverlap(
+                    selectedDates.start,
+                    selectedDates.end,
+                    rentalStart,
+                    rentalEnd
+                );
+            }
+            
+            card.style.display = showCard ? '' : 'none';
+            if (showCard) visibleCount++;
+        });
+
+        // Добавляем сообщение, если нет результатов
+        const noResultsMessage = document.getElementById('no-results-message');
+        if (visibleCount === 0) {
+            if (!noResultsMessage) {
+                const message = document.createElement('div');
+                message.id = 'no-results-message';
+                message.className = 'alert alert-info mt-3';
+                message.textContent = 'Нет объявлений, соответствующих выбранным фильтрам';
+                listings.parentNode.appendChild(message);
+            }
+        } else if (noResultsMessage) {
+            noResultsMessage.remove();
+        }
+    }
+
+    function getDateOverlapScore(start1, end1, start2, end2) {
+        // Если нет выбранных дат, возвращаем 0
+        if (!start1 || !end1) return 0;
+        
+        // Если нет дат в объявлении, возвращаем минимальный приоритет
+        if (!start2 || !end2) return -1;
+        
+        // Преобразуем даты в timestamp
+        start1 = start1.getTime();
+        end1 = end1.getTime();
+        start2 = start2.getTime();
+        end2 = end2.getTime();
+        
+        // Находим пересечение
+        const overlapStart = Math.max(start1, start2);
+        const overlapEnd = Math.min(end1, end2);
+        
+        if (overlapEnd < overlapStart) return 0;
+        
+        // Вычисляем количество дней пересечения
+        const millisecondsPerDay = 1000 * 60 * 60 * 24;
+        const overlapDays = Math.floor((overlapEnd - overlapStart) / millisecondsPerDay) + 1;
+        
+        return overlapDays;
+    }
+
+    function extractPrice(priceElement) {
+        if (!priceElement) return Infinity;
+        const priceText = priceElement.textContent.trim();
+        const match = priceText.match(/(\d+(?:\s\d+)*)/);
+        if (!match) return Infinity;
+        return parseInt(match[1].replace(/\s/g, ''));
+    }
+
+    function sortListings() {
+        const cards = Array.from(document.querySelectorAll('.listing'));
+        const sortOrder = sortSelect.value;
+        
+        cards.sort((a, b) => {
+            if (sortOrder === 'date-desc' || sortOrder === 'date-asc') {
+                const dateA = new Date(a.dataset.date + 'Z');
+                const dateB = new Date(b.dataset.date + 'Z');
+                return sortOrder === 'date-desc' ? dateB - dateA : dateA - dateB;
+            }
+            else if (sortOrder === 'price-asc') {
+                const priceA = extractPrice(a.querySelector('.badge.bg-success'));
+                const priceB = extractPrice(b.querySelector('.badge.bg-success'));
+                return priceA - priceB;
+            }
+            else if (sortOrder === 'date-match' && datePicker.getStartDate() && datePicker.getEndDate()) {
+                const selectedStart = datePicker.getStartDate();
+                const selectedEnd = datePicker.getEndDate();
+                
+                const getDates = (card) => {
+                    const datesEl = card.querySelector('.dates');
+                    if (!datesEl) return [null, null];
+                    
+                    const datesText = datesEl.textContent;
+                    const startMatch = datesText.match(/с\s+(\d{2}\.\d{2}\.\d{4})/);
+                    const endMatch = datesText.match(/по\s+(\d{2}\.\d{2}\.\d{4})/);
+                    
+                    return [
+                        startMatch ? parseDate(startMatch[1]) : null,
+                        endMatch ? parseDate(endMatch[1]) : null
+                    ];
+                };
+                
+                const [startA, endA] = getDates(a);
+                const [startB, endB] = getDates(b);
+                
+                const scoreA = getDateOverlapScore(selectedStart, selectedEnd, startA, endA);
+                const scoreB = getDateOverlapScore(selectedStart, selectedEnd, startB, endB);
+                
+                return scoreB - scoreA;
+            }
+            return 0;
+        });
+        
+        cards.forEach(card => listings.appendChild(card));
+    }
+
+    // Инициализация всплывающих подсказок для текста
+    const textPreviews = document.querySelectorAll('.text-preview');
+    textPreviews.forEach(preview => {
+        const fullText = preview.textContent;
+        if (fullText.length > 150) {
+            preview.textContent = fullText.substring(0, 150) + '...';
+            preview.title = fullText;
+        }
+    });
+
+    cityInput.addEventListener('change', filterListings);
+    sortSelect.addEventListener('change', sortListings);
+});
+</script>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/litepicker/dist/css/litepicker.css"/>
+<script src="https://cdn.jsdelivr.net/npm/litepicker/dist/litepicker.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/litepicker/dist/plugins/ranges.js"></script>
+
+<style>
+.image-container {
+    background-color: #f8f9fa;
+    position: relative;
+    width: 100%;
+    padding-top: 56.25%; /* 16:9 Aspect Ratio */
+    overflow: hidden;
+}
+
+.image-container img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.image-counter {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    z-index: 2;
+}
+
+.carousel-control-prev,
+.carousel-control-next {
+    background-color: rgba(0, 0, 0, 0.5);
+    width: 40px;
+    height: 40px;
+    border-radius: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    margin: 0 10px;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+}
+
+.carousel:hover .carousel-control-prev,
+.carousel:hover .carousel-control-next {
+    opacity: 1;
+}
+
+.carousel-control-prev-icon,
+.carousel-control-next-icon {
+    width: 24px;
+    height: 24px;
+}
+
+.placeholder {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+}
+
+.placeholder-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.placeholder-icon {
+    font-size: 3rem;
+    color: #dee2e6;
+    font-style: normal;
+}
+
+.text-preview {
+    font-size: 0.9rem;
+    line-height: 1.4;
+    max-height: 200px;
+    overflow: hidden;
+    cursor: help;
+}
+
+.card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.badge {
+    font-size: 0.75rem;
+    padding: 0.5em 0.8em;
+}
+
+.badge.bg-success {
+    font-size: 0.85rem;
+}
+
+#clear-dates {
+    padding: 0.375rem 0.75rem;
+}
+
+#clear-dates i {
+    margin: 0;
+}
+
+.new-listing {
+    border: 2px solid #ffc107;
+}
+
+/* Адаптивные стили */
+@media (max-width: 992px) {
+    .row-cols-lg-3 > * {
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+}
+
+@media (max-width: 768px) {
+    .row-cols-md-2 > * {
+        flex: 0 0 100%;
+        max-width: 100%;
+    }
+}
+
+.bi {
+    margin-right: 0.25rem;
+}
+
+.location, .dates {
+    font-size: 0.85rem;
+}
+
+.litepicker {
+    font-family: inherit;
+    box-shadow: 0 0 20px rgba(0,0,0,0.15);
+    border-radius: 8px;
+}
+
+.litepicker .container__months {
+    box-shadow: none;
+}
+
+.litepicker .container__days .day-item.is-today {
+    color: #0d6efd;
+    font-weight: bold;
+}
+
+.litepicker .container__days .day-item.is-start-date,
+.litepicker .container__days .day-item.is-end-date {
+    background-color: #0d6efd;
+    color: #fff;
+}
+
+.litepicker .container__days .day-item.is-in-range {
+    background-color: #e9ecef;
+    color: #0d6efd;
+}
+
+.litepicker .container__days .day-item:hover {
+    background-color: #0d6efd;
+    color: #fff;
+    box-shadow: none;
+}
+</style>
+{% endblock %} 
