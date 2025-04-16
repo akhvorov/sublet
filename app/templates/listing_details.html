@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}
+Объявление #{{ listing.id }} - HSE Sublet
+{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item">
+            {% if listing.type == 'renting_out' %}
+            <a href="{{ url_for('listings', listing_type='renting_out') }}">Сдают квартиру</a>
+            {% elif listing.type == 'looking_for' %}
+            <a href="{{ url_for('listings', listing_type='looking_for') }}">Ищут квартиру</a>
+            {% else %}
+            <a href="{{ url_for('listings', listing_type='exchange') }}">Обмен квартирами</a>
+            {% endif %}
+        </li>
+        <li class="breadcrumb-item active" aria-current="page">Объявление #{{ listing.id }}</li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            {% if listing.photo_paths %}
+            <div class="listing-images">
+                {% if listing.photo_paths|length > 1 %}
+                <div id="carousel-{{ listing.id }}" class="carousel slide" data-bs-ride="false" data-bs-interval="false">
+                    <div class="carousel-inner">
+                        {% for photo in listing.photo_paths %}
+                        <div class="carousel-item {% if loop.first %}active{% endif %}">
+                            <div class="image-container-large">
+                                <img src="{{ url_for('static', filename=photo) }}" 
+                                     class="d-block w-100 rounded-top" alt="Фото объявления" loading="lazy">
+                                <div class="image-counter">{{ loop.index }} / {{ listing.photo_paths|length }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <button class="carousel-control-prev" type="button" data-bs-target="#carousel-{{ listing.id }}" data-bs-slide="prev">
+                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Предыдущее</span>
+                    </button>
+                    <button class="carousel-control-next" type="button" data-bs-target="#carousel-{{ listing.id }}" data-bs-slide="next">
+                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Следующее</span>
+                    </button>
+                </div>
+                {% else %}
+                <div class="image-container-large">
+                    <img src="{{ url_for('static', filename=listing.photo_paths[0]) }}" 
+                         class="d-block w-100 rounded-top" alt="Фото объявления">
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        {% if listing.is_new %}
+                        <span class="badge bg-warning me-2">New</span>
+                        {% endif %}
+                        <span class="badge listing-type-badge 
+                            {% if listing.type == 'renting_out' %}bg-success
+                            {% elif listing.type == 'looking_for' %}bg-primary
+                            {% else %}bg-info{% endif %}">
+                            {% if listing.type == 'renting_out' %}Сдаётся
+                            {% elif listing.type == 'looking_for' %}Ищут
+                            {% else %}Обмен{% endif %}
+                        </span>
+                    </div>
+                    {% if listing.price_eur %}
+                    <span class="badge bg-success fs-6">{{ listing.price_eur|format_price }}</span>
+                    {% endif %}
+                </div>
+
+                {% if listing.city or listing.country %}
+                <div class="location mb-3">
+                    <i class="bi bi-geo-alt"></i>
+                    {% if listing.city %}{{ listing.city }}{% endif %}
+                    {% if listing.city and listing.country %}, {% endif %}
+                    {% if listing.country %}{{ listing.country }}{% endif %}
+                </div>
+                {% endif %}
+
+                {% if listing.rental_start or listing.rental_end %}
+                <div class="dates mb-3">
+                    <i class="bi bi-calendar"></i>
+                    {% if listing.rental_start %}с {{ listing.rental_start|format_date }}{% endif %}
+                    {% if listing.rental_end %} по {{ listing.rental_end|format_date }}{% endif %}
+                </div>
+                {% endif %}
+
+                <div class="listing-text mb-4">
+                    {{ listing.text|format_text|safe }}
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="text-muted">
+                        <i class="bi bi-clock"></i> {{ listing.date|format_datetime }}
+                    </div>
+                    <div>
+                        <a href="{{ listing.link }}" target="_blank" class="btn btn-primary">
+                            <i class="bi bi-telegram"></i> Открыть в Telegram
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<style>
+.image-container-large {
+    position: relative;
+    width: 100%;
+    padding-top: 50%;
+    overflow: hidden;
+    max-width: 800px;
+    margin: 0 auto;
+    background-color: #f8f9fa;
+}
+
+.image-container-large img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.image-counter {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    z-index: 2;
+}
+
+.carousel-control-prev,
+.carousel-control-next {
+    background-color: rgba(0, 0, 0, 0.5);
+    width: 40px;
+    height: 40px;
+    border-radius: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    margin: 0 10px;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+}
+
+.carousel:hover .carousel-control-prev,
+.carousel:hover .carousel-control-next {
+    opacity: 1;
+}
+
+.listing-text {
+    font-size: 1rem;
+    line-height: 1.6;
+}
+
+.listing-text p {
+    margin-bottom: 1rem;
+}
+
+.listing-type-badge {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.location, .dates {
+    font-size: 1rem;
+    color: #666;
+}
+
+.badge {
+    font-size: 0.875rem;
+    padding: 0.5em 0.8em;
+}
+
+.bi {
+    margin-right: 0.5rem;
+}
+</style>
+{% endblock %} 

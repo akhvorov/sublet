@@ -1,0 +1,281 @@
+{% extends "base.html" %}
+
+{% block title %}
+    {% if listing_type == 'renting_out' %}
+    Сдают квартиру
+    {% elif listing_type == 'looking_for' %}
+    Ищут квартиру
+    {% else %}
+    Обмен квартирами
+    {% endif %}
+    - HSE Sublet
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-3 mb-4">
+        <div class="card">
+            <div class="card-header">
+                Фильтры
+            </div>
+            <div class="card-body">
+                <form id="filters-form" method="get">
+                    <div class="mb-3">
+                        <label for="city" class="form-label">Город</label>
+                        <select class="form-select" id="city" name="city">
+                            <option value="">Все города</option>
+                            {% for city in cities %}
+                                <option value="{{ city }}" {% if selected_city == city %}selected{% endif %}>
+                                    {{ city }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Период</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="date-range" name="dates" 
+                                   value="{{ selected_dates }}" placeholder="Выберите период" readonly>
+                            <button class="btn btn-outline-secondary" type="button" id="clear-dates">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Сортировка</label>
+                        <select class="form-select" id="sort" name="sort">
+                            <option value="date-desc" {% if sort_order == 'date-desc' %}selected{% endif %}>Сначала новые</option>
+                            <option value="date-asc" {% if sort_order == 'date-asc' %}selected{% endif %}>Сначала старые</option>
+                            <option value="price-asc" {% if sort_order == 'price-asc' %}selected{% endif %}>Сначала дешевые</option>
+                            <option value="date-match" {% if sort_order == 'date-match' %}selected{% endif %}>По совпадению дат</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-9">
+        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+            {% for listing in listings %}
+            <div class="col">
+                <div class="card h-100 {% if listing.is_new %}new-listing{% endif %}">
+                    {% if listing.photo_paths %}
+                    <div class="image-container">
+                        {% if listing.photo_paths|length > 1 %}
+                        <div id="carousel-{{ listing.id }}" class="carousel slide" data-bs-ride="false" data-bs-interval="false">
+                            <div class="carousel-inner">
+                                {% for photo in listing.photo_paths %}
+                                <div class="carousel-item {% if loop.first %}active{% endif %}">
+                                    <img src="{{ url_for('static', filename=photo) }}" 
+                                         class="card-img-top" alt="Фото квартиры">
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <button class="carousel-control-prev" type="button" data-bs-target="#carousel-{{ listing.id }}" data-bs-slide="prev">
+                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                <span class="visually-hidden">Предыдущее</span>
+                            </button>
+                            <button class="carousel-control-next" type="button" data-bs-target="#carousel-{{ listing.id }}" data-bs-slide="next">
+                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                <span class="visually-hidden">Следующее</span>
+                            </button>
+                            <div class="image-counter">{{ listing.photo_paths|length }} фото</div>
+                        </div>
+                        {% else %}
+                        <img src="{{ url_for('static', filename=listing.photo_paths[0]) }}" 
+                             class="card-img-top" alt="Фото квартиры">
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div>
+                                {% if listing.is_new %}
+                                <span class="badge bg-warning me-2">New</span>
+                                {% endif %}
+                            </div>
+                            {% if listing.price_eur %}
+                            <span class="badge bg-success fs-6">{{ listing.price_eur|format_price }}</span>
+                            {% endif %}
+                        </div>
+
+                        {% if listing.city or listing.country %}
+                        <div class="location mb-2">
+                            <i class="bi bi-geo-alt"></i>
+                            {% if listing.city %}{{ listing.city }}{% endif %}
+                            {% if listing.city and listing.country %}, {% endif %}
+                            {% if listing.country %}{{ listing.country }}{% endif %}
+                        </div>
+                        {% endif %}
+
+                        {% if listing.rental_start or listing.rental_end %}
+                        <div class="dates mb-2">
+                            <i class="bi bi-calendar"></i>
+                            {% if listing.rental_start %}с {{ listing.rental_start|format_date }}{% endif %}
+                            {% if listing.rental_end %} по {{ listing.rental_end|format_date }}{% endif %}
+                        </div>
+                        {% endif %}
+
+                        <p class="card-text text-preview">{{ listing.text|truncate(200) }}</p>
+                        
+                        <div class="mt-auto">
+                            <a href="{{ url_for('listing_details', listing_id=listing.id) }}" class="btn btn-primary">
+                                Подробнее
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <div class="card-footer text-muted">
+                        <small><i class="bi bi-clock"></i> {{ listing.date|format_datetime }}</small>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        {% if not listings %}
+        <div class="alert alert-info mt-3">
+            Нет объявлений, соответствующих выбранным фильтрам
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/litepicker/dist/css/litepicker.css"/>
+<script src="https://cdn.jsdelivr.net/npm/litepicker/dist/litepicker.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Инициализация календаря
+    const picker = new Litepicker({
+        element: document.getElementById('date-range'),
+        format: 'DD.MM.YYYY',
+        lang: 'ru-RU',
+        numberOfMonths: 2,
+        numberOfColumns: 2,
+        singleMode: false,
+        autoApply: true,
+        showTooltip: true,
+        setup: (picker) => {
+            picker.on('selected', () => {
+                document.getElementById('filters-form').submit();
+            });
+        }
+    });
+
+    // Очистка дат
+    document.getElementById('clear-dates').addEventListener('click', function() {
+        picker.clearSelection();
+        document.getElementById('filters-form').submit();
+    });
+
+    // Автоматическая отправка формы при изменении фильтров
+    ['city', 'sort'].forEach(id => {
+        document.getElementById(id).addEventListener('change', function() {
+            document.getElementById('filters-form').submit();
+        });
+    });
+});
+</script>
+
+<style>
+.image-container {
+    position: relative;
+    width: 100%;
+    padding-top: 56.25%;
+    overflow: hidden;
+    background-color: #f8f9fa;
+}
+
+.image-container img,
+.carousel,
+.carousel-inner,
+.carousel-item {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.carousel-item img {
+    object-fit: cover;
+    position: relative;
+}
+
+.image-counter {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    z-index: 2;
+}
+
+.carousel-control-prev,
+.carousel-control-next {
+    width: 40px;
+    height: 40px;
+    background-color: rgba(0, 0, 0, 0.5);
+    border-radius: 50%;
+    top: 50%;
+    transform: translateY(-50%);
+    margin: 0 10px;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+}
+
+.carousel:hover .carousel-control-prev,
+.carousel:hover .carousel-control-next {
+    opacity: 1;
+}
+
+.carousel-control-prev-icon,
+.carousel-control-next-icon {
+    width: 20px;
+    height: 20px;
+}
+
+.new-listing {
+    border: 2px solid #ffc107;
+}
+
+.text-preview {
+    font-size: 0.9rem;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.location, .dates {
+    font-size: 0.85rem;
+    color: #666;
+}
+
+#clear-dates {
+    padding: 0.375rem 0.75rem;
+}
+
+#clear-dates i {
+    margin: 0;
+}
+
+.card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+</style>
+{% endblock %} 
